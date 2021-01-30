@@ -30,6 +30,10 @@ type Records struct {
 	Items []interface{} `json:"records"`
 }
 
+type Record struct {
+	Item interface{} `json:"record"`
+}
+
 func NewDbExplorer(db *sql.DB) (*MyApi, error) {
 	return &MyApi{
 		DB: db,
@@ -84,13 +88,23 @@ func (dbExplorer *MyApi) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tableName := strings.Split(r.URL.Path, "/")[1]
+	//tableName := strings.Split(r.URL.Path, "/")[1]
+	tableName := path.Base(r.URL.Path)
 
 	if tableName == "/" {
 		makeOutput(w, ApiResponse{
 			Response: &res,
 		}, http.StatusOK)
 		return
+	}
+
+	//попробуем достать id
+	var idIntVal int
+	id := tableName
+
+	idIntVal, err = strconv.Atoi(id)
+	if err == nil {
+		tableName = strings.Split(r.URL.Path, "/")[1]
 	}
 
 	if _, ok := Find(res.(*Tables).Items, tableName); !ok {
@@ -100,36 +114,35 @@ func (dbExplorer *MyApi) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//switch r.URL.Path {
-	//	case "/items":
-	//		res, err = dbExplorer.ListTableByName("items")
-	//}
-
-	var limitIntVal, offsetIntVal, idIntVal int
-
-	limit := r.URL.Query().Get("limit")
-	if limit == "" {
-		limitIntVal = 5
-	} else {
-		limitIntVal, err = strconv.Atoi(limit)
-	}
-	offset := r.URL.Query().Get("offset")
-	if offset == "" {
-		offsetIntVal = 0
-	} else {
-		offsetIntVal, err = strconv.Atoi(offset)
-	}
-
-	id := path.Base(r.URL.Path)
-	if id == "" || id == "/" {
-		res, err = dbExplorer.ListTableByName(tableName, limitIntVal, offsetIntVal)
+	if idIntVal != 0 {
+		res, err = dbExplorer.ListTableByNameAndId(tableName, idIntVal)
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			if err == sql.ErrNoRows {
+				makeOutput(w, ApiResponse{
+					Error: "record not found",
+				}, http.StatusNotFound)
+			} else {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
 			return
 		}
 	} else {
-		idIntVal, err = strconv.Atoi(id)
-		res, err = dbExplorer.ListTableByNameAndId(tableName, idIntVal)
+		var limitIntVal, offsetIntVal int
+
+		limit := r.URL.Query().Get("limit")
+		if limit == "" {
+			limitIntVal = 5
+		} else {
+			limitIntVal, err = strconv.Atoi(limit)
+		}
+		offset := r.URL.Query().Get("offset")
+		if offset == "" {
+			offsetIntVal = 0
+		} else {
+			offsetIntVal, err = strconv.Atoi(offset)
+		}
+
+		res, err = dbExplorer.ListTableByName(tableName, limitIntVal, offsetIntVal)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -165,12 +178,13 @@ func (dbExplorer *MyApi) ListAllTables() (*Tables, error) {
 
 func (dbExplorer *MyApi) ListTableByName(tableName string, limit int, offset int) (interface{}, error) {
 	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SELECT * FROM %s LIMIT ?, ?", tableName), offset, limit)
-	if err != nil {
-		return nil, err
-	}
 
 	// надо закрывать соединение, иначе будет течь
 	defer rows.Close()
+
+	if err != nil {
+		return nil, err
+	}
 
 	var items []interface{}
 
@@ -201,16 +215,12 @@ func (dbExplorer *MyApi) ListTableByName(tableName string, limit int, offset int
 		var value interface{}
 		for i, col := range values {
 			if col != nil {
-				//valueOf := reflect.ValueOf(col)
-				//fmt.Println(valueOf)
-				//fmt.Println(valueOf.Kind())
 				switch columnTypes[i].DatabaseTypeName() {
 				case "INT":
 					value, _ = strconv.Atoi(string(col))
 				case "VARCHAR", "TEXT":
 					value = string(col)
 				}
-				//value = col
 			} else {
 				value = nil
 			}
@@ -218,74 +228,28 @@ func (dbExplorer *MyApi) ListTableByName(tableName string, limit int, offset int
 			vals[columns[i]] = value
 		}
 		items = append(items, vals)
-		fmt.Println("-----------------------------------")
+		//fmt.Println("-----------------------------------")
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
-	//colNames, err := rows.Columns()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//var vals = make(map[string]interface{})
-	//cols := make([]interface{}, len(colNames))
-	////colPtrs := make([]interface{}, len(colNames))
-	////for i := 0; i < len(colNames); i++ {
-	////	colPtrs[i] = &cols[i]
-	////}
-	//for i, _ := range colNames {
-	//	cols[i] = new(sql.RawBytes)
-	//}
-	//
-	//for rows.Next() {
-	//	err = rows.Scan(cols...)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	for i, col := range cols {
-	//		vals[colNames[i]] = col
-	//	}
-	//	// Do something with the map
-	//	for key, val := range vals {
-	//		fmt.Println("Key:", key, "Value Type:", reflect.TypeOf(val), "Value: ", val)
-	//	}
-	//}
-
-	//var values [][]interface{}
-	//if rows.Next() {
-	//	columns, err := rows.ColumnTypes()
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//
-	//	values := make([]interface{}, len(columns))
-	//	object := map[string]interface{}{}
-	//
-	//	for i, column := range columns {
-	//		//switch column.DatabaseTypeName() {
-	//		//	case "INT": object[column.Name()] = reflect.New(column.ScanType()).Interface().(*int32)
-	//		//	case "VARCHAR", "TEXT": object[column.Name()] = reflect.New(column.ScanType()).Interface().(*sql.RawBytes)
-	//		//}
-	//		object[column.Name()] = reflect.New(column.ScanType()).Interface().(*sql.RawBytes)
-	//		values[i] = object[column.Name()]
-	//	}
-	//
-	//	err = rows.Scan(values...)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
 	return &Records{Items: items}, nil
 }
 
 func (dbExplorer *MyApi) ListTableByNameAndId(tableName string, id int) (interface{}, error) {
-	row := dbExplorer.DB.QueryRow(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", tableName), id)
+	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", tableName), id)
 
-	var items []interface{}
+	// надо закрывать соединение, иначе будет течь
+	defer rows.Close()
 
-	columns, err := row.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var item interface{}
+
+	columns, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
@@ -297,12 +261,12 @@ func (dbExplorer *MyApi) ListTableByNameAndId(tableName string, id int) (interfa
 		scanArgs[i] = &values[i]
 	}
 
-	columnTypes, err := row.ColumnTypes()
+	columnTypes, err := rows.ColumnTypes()
 	if err != nil {
 		return nil, err
 	}
 
-	if row.Next() {
+	if rows.Next() {
 		var vals = make(map[string]interface{})
 		err = rows.Scan(scanArgs...)
 		if err != nil {
@@ -312,30 +276,27 @@ func (dbExplorer *MyApi) ListTableByNameAndId(tableName string, id int) (interfa
 		var value interface{}
 		for i, col := range values {
 			if col != nil {
-				//valueOf := reflect.ValueOf(col)
-				//fmt.Println(valueOf)
-				//fmt.Println(valueOf.Kind())
 				switch columnTypes[i].DatabaseTypeName() {
 				case "INT":
 					value, _ = strconv.Atoi(string(col))
 				case "VARCHAR", "TEXT":
 					value = string(col)
 				}
-				//value = col
 			} else {
 				value = nil
 			}
-			fmt.Println(columns[i], ": ", value)
+			//fmt.Println(columns[i], ": ", value)
 			vals[columns[i]] = value
 		}
-		items = append(items, vals)
-		fmt.Println("-----------------------------------")
+		item = vals
+		//fmt.Println("-----------------------------------")
+	} else {
+		return nil, sql.ErrNoRows
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
-	return &Records{Items: items}, nil
+	return &Record{Item: item}, nil
 }
 
 func (dbExplorer *MyApi) Create(w http.ResponseWriter, r *http.Request) {

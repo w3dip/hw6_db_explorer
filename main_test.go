@@ -105,74 +105,74 @@ func TestApis(t *testing.T) {
 	ts := httptest.NewServer(handler)
 
 	cases := []Case{
-		//Case{
-		//	Path: "/", // список таблиц
-		//	Result: CR{
-		//		"response": CR{
-		//			"tables": []string{"items", "users"},
-		//		},
-		//	},
-		//},
-		//Case{
-		//	Path:   "/unknown_table",
-		//	Status: http.StatusNotFound,
-		//	Result: CR{
-		//		"error": "unknown table",
-		//	},
-		//},
-		//Case{
-		//	Path: "/items",
-		//	Result: CR{
-		//		"response": CR{
-		//			"records": []CR{
-		//				CR{
-		//					"id":          1,
-		//					"title":       "database/sql",
-		//					"description": "Рассказать про базы данных",
-		//					"updated":     "rvasily",
-		//				},
-		//				CR{
-		//					"id":          2,
-		//					"title":       "memcache",
-		//					"description": "Рассказать про мемкеш с примером использования",
-		//					"updated":     nil,
-		//				},
-		//			},
-		//		},
-		//	},
-		//},
-		//Case{
-		//	Path:  "/items",
-		//	Query: "limit=1",
-		//	Result: CR{
-		//		"response": CR{
-		//			"records": []CR{
-		//				CR{
-		//					"id":          1,
-		//					"title":       "database/sql",
-		//					"description": "Рассказать про базы данных",
-		//					"updated":     "rvasily",
-		//				},
-		//			},
-		//		},
-		//	},
-		//},
-		//Case{
-		//	Path:  "/items",
-		//	Query: "limit=1&offset=1",
-		//	Result: CR{
-		//		"response": CR{
-		//			"records": []CR{
-		//				CR{
-		//					"id":          2,
-		//					"title":       "memcache",
-		//					"description": "Рассказать про мемкеш с примером использования",
-		//					"updated":     nil,
-		//				},
-		//			},
-		//		},
-		//	},
-		//},
+		Case{
+			Path: "/", // список таблиц
+			Result: CR{
+				"response": CR{
+					"tables": []string{"items", "users"},
+				},
+			},
+		},
+		Case{
+			Path:   "/unknown_table",
+			Status: http.StatusNotFound,
+			Result: CR{
+				"error": "unknown table",
+			},
+		},
+		Case{
+			Path: "/items",
+			Result: CR{
+				"response": CR{
+					"records": []CR{
+						CR{
+							"id":          1,
+							"title":       "database/sql",
+							"description": "Рассказать про базы данных",
+							"updated":     "rvasily",
+						},
+						CR{
+							"id":          2,
+							"title":       "memcache",
+							"description": "Рассказать про мемкеш с примером использования",
+							"updated":     nil,
+						},
+					},
+				},
+			},
+		},
+		Case{
+			Path:  "/items",
+			Query: "limit=1",
+			Result: CR{
+				"response": CR{
+					"records": []CR{
+						CR{
+							"id":          1,
+							"title":       "database/sql",
+							"description": "Рассказать про базы данных",
+							"updated":     "rvasily",
+						},
+					},
+				},
+			},
+		},
+		Case{
+			Path:  "/items",
+			Query: "limit=1&offset=1",
+			Result: CR{
+				"response": CR{
+					"records": []CR{
+						CR{
+							"id":          2,
+							"title":       "memcache",
+							"description": "Рассказать про мемкеш с примером использования",
+							"updated":     nil,
+						},
+					},
+				},
+			},
+		},
 		Case{
 			Path: "/items/1",
 			Result: CR{
@@ -186,13 +186,13 @@ func TestApis(t *testing.T) {
 				},
 			},
 		},
-		//Case{
-		//	Path:   "/items/100500",
-		//	Status: http.StatusNotFound,
-		//	Result: CR{
-		//		"error": "record not found",
-		//	},
-		//},
+		Case{
+			Path:   "/items/100500",
+			Status: http.StatusNotFound,
+			Result: CR{
+				"error": "record not found",
+			},
+		},
 		//
 		//// тут идёт создание и редактирование
 		//Case{
