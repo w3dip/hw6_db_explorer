@@ -38,6 +38,10 @@ type DeleteResult struct {
 	Count int64 `json:"deleted"`
 }
 
+type InsertResult struct {
+	Id int64 `json:"id"`
+}
+
 func NewDbExplorer(db *sql.DB) (*MyApi, error) {
 	return &MyApi{
 		DB: db,
@@ -319,7 +323,99 @@ func (dbExplorer *MyApi) ListTableByNameAndId(tableName string, id int) (interfa
 }
 
 func (dbExplorer *MyApi) Create(w http.ResponseWriter, r *http.Request) {
+	var err error
+	//var params map[string]interface{}
+	params := make(map[string]interface{})
+	tableName := path.Base(r.URL.Path)
 
+	//err = r.ParseForm()
+	//if err != nil {
+	//	http.Error(w, "internal error", http.StatusInternalServerError)
+	//	return
+	//}
+
+	//for key, value := range r.Form {
+	//	params[key] = value
+	//}
+	//fmt.Println(r.Form.Get("title"))
+	//fmt.Println(r.PostForm.Get("title"))
+	//fmt.Println(r.Body)
+	//params := r.PostForm.(map[string][]string)
+	//data := []byte{}
+	//_, err = r.Body.Read(data)
+	//if err != nil {
+	//	http.Error(w, "internal error", http.StatusInternalServerError)
+	//	return
+	//}
+	//if err := json.Unmarshal(data, &params); err != nil {
+	//	http.Error(w, "internal error", http.StatusInternalServerError)
+	//	return
+	//}
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&params)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	res, err := dbExplorer.Insert(tableName, params)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	makeOutput(w, ApiResponse{
+		Response: &res,
+	}, http.StatusOK)
+}
+
+func (dbExplorer *MyApi) Insert(tableName string, params map[string]interface{}) (interface{}, error) {
+	var err error
+	var result sql.Result
+	var affected int64
+	var id int64
+
+	pk_name, err := dbExplorer.GetPrimaryKeyColumnName(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	var fieldNames []string
+	var placeholders []string
+	var values []interface{}
+
+	for fieldName, value := range params {
+		if fieldName != pk_name {
+			fieldNames = append(fieldNames, fieldName)
+			placeholders = append(placeholders, "?")
+			values = append(values, value)
+		}
+	}
+
+	stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(fieldNames, ", "), strings.Join(placeholders, ", "))
+
+	//result, err = dbExplorer.DB.Exec(fmt.Sprintf("INSERT INTO %s (title, description) VALUES (?, ?)", tableName), "db_crud", "")
+	result, err = dbExplorer.DB.Exec(stmt, values...)
+	if err != nil {
+		return nil, err
+	}
+
+	affected, err = result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if affected == 0 {
+		return nil, fmt.Errorf("No row was inserted!")
+	}
+
+	id, err = result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return &InsertResult{
+		Id: id,
+	}, nil
 }
 
 func (dbExplorer *MyApi) Update(w http.ResponseWriter, r *http.Request) {

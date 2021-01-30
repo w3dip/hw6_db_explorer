@@ -194,22 +194,21 @@ func TestApis(t *testing.T) {
 		//	},
 		//},
 
-		//
-		//// тут идёт создание и редактирование
-		//Case{
-		//	Path:   "/items/",
-		//	Method: http.MethodPut,
-		//	Body: CR{
-		//		"id":          42, // auto increment primary key игнорируется при вставке
-		//		"title":       "db_crud",
-		//		"description": "",
-		//	},
-		//	Result: CR{
-		//		"response": CR{
-		//			"id": 3,
-		//		},
-		//	},
-		//},
+		// тут идёт создание и редактирование
+		Case{
+			Path:   "/items",
+			Method: http.MethodPut,
+			Body: CR{
+				"id":          42, // auto increment primary key игнорируется при вставке
+				"title":       "db_crud",
+				"description": "",
+			},
+			Result: CR{
+				"response": CR{
+					"id": 3,
+				},
+			},
+		},
 		//// это пример хрупкого теста
 		//// если много раз вызывать один и тот же тест - записи будут добавляться
 		//// поэтому придётся сделать сброс базы каждый раз в PrepareTestData
@@ -381,21 +380,21 @@ func TestApis(t *testing.T) {
 		//},
 		//
 		// и немного по другой таблице
-		Case{
-			Path: "/users/1",
-			Result: CR{
-				"response": CR{
-					"record": CR{
-						"user_id":  1,
-						"login":    "rvasily",
-						"password": "love",
-						"email":    "rvasily@example.com",
-						"info":     "none",
-						"updated":  nil,
-					},
-				},
-			},
-		},
+		//Case{
+		//	Path: "/users/1",
+		//	Result: CR{
+		//		"response": CR{
+		//			"record": CR{
+		//				"user_id":  1,
+		//				"login":    "rvasily",
+		//				"password": "love",
+		//				"email":    "rvasily@example.com",
+		//				"info":     "none",
+		//				"updated":  nil,
+		//			},
+		//		},
+		//	},
+		//},
 		//
 		//Case{
 		//	Path:   "/users/1",
