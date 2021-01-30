@@ -384,8 +384,28 @@ func (dbExplorer *MyApi) Insert(tableName string, params map[string]interface{})
 	var placeholders []string
 	var values []interface{}
 
+	var colNames []string
+	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s'", tableName))
+
+	// надо закрывать соединение, иначе будет течь
+	defer rows.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var colName string
+		err = rows.Scan(&colName)
+		if err != nil {
+			return nil, err
+		}
+		colNames = append(colNames, colName)
+	}
+
 	for fieldName, value := range params {
-		if fieldName != pk_name {
+		_, exists := Find(colNames, fieldName)
+		if fieldName != pk_name && exists {
 			fieldNames = append(fieldNames, fieldName)
 			placeholders = append(placeholders, "?")
 			values = append(values, value)

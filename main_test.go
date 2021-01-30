@@ -193,22 +193,21 @@ func TestApis(t *testing.T) {
 		//		"error": "record not found",
 		//	},
 		//},
-
-		// тут идёт создание и редактирование
-		Case{
-			Path:   "/items",
-			Method: http.MethodPut,
-			Body: CR{
-				"id":          42, // auto increment primary key игнорируется при вставке
-				"title":       "db_crud",
-				"description": "",
-			},
-			Result: CR{
-				"response": CR{
-					"id": 3,
-				},
-			},
-		},
+		//// тут идёт создание и редактирование
+		//Case{
+		//	Path:   "/items/",
+		//	Method: http.MethodPut,
+		//	Body: CR{
+		//		"id":          42, // auto increment primary key игнорируется при вставке
+		//		"title":       "db_crud",
+		//		"description": "",
+		//	},
+		//	Result: CR{
+		//		"response": CR{
+		//			"id": 3,
+		//		},
+		//	},
+		//},
 		//// это пример хрупкого теста
 		//// если много раз вызывать один и тот же тест - записи будут добавляться
 		//// поэтому придётся сделать сброс базы каждый раз в PrepareTestData
@@ -225,6 +224,7 @@ func TestApis(t *testing.T) {
 		//		},
 		//	},
 		//},
+
 		//Case{
 		//	Path:   "/items/3",
 		//	Method: http.MethodPost,
@@ -436,22 +436,22 @@ func TestApis(t *testing.T) {
 		//		"error": "field user_id have invalid type",
 		//	},
 		//},
-		//// не забываем про sql-инъекции
-		//Case{
-		//	Path:   "/users/",
-		//	Method: http.MethodPut,
-		//	Body: CR{
-		//		"user_id":    2,
-		//		"login":      "qwerty'",
-		//		"password":   "love\"",
-		//		"unkn_field": "love",
-		//	},
-		//	Result: CR{
-		//		"response": CR{
-		//			"user_id": 2,
-		//		},
-		//	},
-		//},
+		// не забываем про sql-инъекции
+		Case{
+			Path:   "/users/",
+			Method: http.MethodPut,
+			Body: CR{
+				"user_id":    2,
+				"login":      "qwerty'",
+				"password":   "love\"",
+				"unkn_field": "love",
+			},
+			Result: CR{
+				"response": CR{
+					"user_id": 2,
+				},
+			},
+		},
 		//Case{
 		//	Path: "/users/2",
 		//	Result: CR{
