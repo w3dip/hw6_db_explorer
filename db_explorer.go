@@ -38,8 +38,17 @@ type DeleteResult struct {
 	Count int64 `json:"deleted"`
 }
 
-type InsertResult struct {
-	Id int64 `json:"id"`
+//type InsertResult struct {
+//	Id int64 `json:"id"`
+//}
+
+type ColInfo struct {
+	Field   string
+	Type    string
+	Null    string
+	Key     string
+	Default sql.NullString
+	Extra   string
 }
 
 func NewDbExplorer(db *sql.DB) (*MyApi, error) {
@@ -364,12 +373,14 @@ func (dbExplorer *MyApi) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	makeOutput(w, ApiResponse{
-		Response: &res,
-	}, http.StatusOK)
+	//resp := ‘{"affected": ‘ + strconv.Itoa(int(affected)) + ‘}‘
+	w.Write([]byte(res))
+	//makeOutput(w, ApiResponse{
+	//	Response: &res,
+	//}, http.StatusOK)
 }
 
-func (dbExplorer *MyApi) Insert(tableName string, params map[string]interface{}) (interface{}, error) {
+func (dbExplorer *MyApi) Insert(tableName string, params map[string]interface{}) (string, error) {
 	var err error
 	var result sql.Result
 	var affected int64
@@ -377,65 +388,80 @@ func (dbExplorer *MyApi) Insert(tableName string, params map[string]interface{})
 
 	pk_name, err := dbExplorer.GetPrimaryKeyColumnName(tableName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	var fieldNames []string
 	var placeholders []string
 	var values []interface{}
 
-	var colNames []string
-	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s'", tableName))
+	columns := []*ColInfo{}
+	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SHOW COLUMNS FROM %s", tableName))
 
 	// надо закрывать соединение, иначе будет течь
 	defer rows.Close()
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	for rows.Next() {
-		var colName string
-		err = rows.Scan(&colName)
+		column := &ColInfo{}
+		err = rows.Scan(&column.Field, &column.Type, &column.Null, &column.Key, &column.Default, &column.Extra)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		colNames = append(colNames, colName)
+		columns = append(columns, column)
 	}
 
-	for fieldName, value := range params {
-		_, exists := Find(colNames, fieldName)
-		if fieldName != pk_name && exists {
-			fieldNames = append(fieldNames, fieldName)
-			placeholders = append(placeholders, "?")
-			values = append(values, value)
+	for _, column := range columns {
+		if column.Field != pk_name {
+			if _, ok := params[column.Field]; ok {
+				fieldNames = append(fieldNames, column.Field)
+				placeholders = append(placeholders, "?")
+				values = append(values, params[column.Field])
+			} else if column.Null == "NO" && !column.Default.Valid {
+				fieldNames = append(fieldNames, column.Field)
+				placeholders = append(placeholders, "?")
+				values = append(values, "")
+			}
 		}
 	}
+
+	//for fieldName, value := range params {
+	//	_, exists := Find(colNames, fieldName)
+	//	if fieldName != pk_name && exists {
+	//		fieldNames = append(fieldNames, fieldName)
+	//		placeholders = append(placeholders, "?")
+	//		values = append(values, value)
+	//	}
+	//}
 
 	stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(fieldNames, ", "), strings.Join(placeholders, ", "))
 
 	//result, err = dbExplorer.DB.Exec(fmt.Sprintf("INSERT INTO %s (title, description) VALUES (?, ?)", tableName), "db_crud", "")
 	result, err = dbExplorer.DB.Exec(stmt, values...)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	affected, err = result.RowsAffected()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if affected == 0 {
-		return nil, fmt.Errorf("No row was inserted!")
+		return "", fmt.Errorf("No row was inserted!")
 	}
 
 	id, err = result.LastInsertId()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &InsertResult{
-		Id: id,
-	}, nil
+	return fmt.Sprintf("{\"response\": {\"%s\" : %v}}", pk_name, id), nil
+	//return &InsertResult{
+	//	Id: id,
+	//}, nil
 }
 
 func (dbExplorer *MyApi) Update(w http.ResponseWriter, r *http.Request) {
