@@ -34,6 +34,10 @@ type Record struct {
 	Item interface{} `json:"record"`
 }
 
+type DeleteResult struct {
+	Count int64 `json:"deleted"`
+}
+
 func NewDbExplorer(db *sql.DB) (*MyApi, error) {
 	return &MyApi{
 		DB: db,
@@ -45,6 +49,12 @@ func (srv *MyApi) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		srv.List(w, r)
+	case "PUT":
+		srv.Create(w, r)
+	case "POST":
+		srv.Update(w, r)
+	case "DELETE":
+		srv.Delete(w, r)
 
 	default:
 		makeOutput(w, ApiResponse{
@@ -238,7 +248,16 @@ func (dbExplorer *MyApi) ListTableByName(tableName string, limit int, offset int
 }
 
 func (dbExplorer *MyApi) ListTableByNameAndId(tableName string, id int) (interface{}, error) {
-	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", tableName), id)
+
+	pk_name, err := dbExplorer.GetPrimaryKeyColumnName(tableName)
+	if pk_name == "" {
+		return nil, fmt.Errorf("Can't find PRIMARY_KEY")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SELECT * FROM %s WHERE %s = ?", tableName, pk_name), id)
 
 	// надо закрывать соединение, иначе будет течь
 	defer rows.Close()
@@ -308,5 +327,58 @@ func (dbExplorer *MyApi) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (dbExplorer *MyApi) Delete(w http.ResponseWriter, r *http.Request) {
+	var err error
+	tableName := path.Base(r.URL.Path)
 
+	//попробуем достать id
+	var idIntVal int
+	id := tableName
+
+	idIntVal, err = strconv.Atoi(id)
+	if err == nil {
+		tableName = strings.Split(r.URL.Path, "/")[1]
+	}
+
+	res, err := dbExplorer.DeleteBydId(tableName, idIntVal)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	makeOutput(w, ApiResponse{
+		Response: &res,
+	}, http.StatusOK)
+}
+
+func (dbExplorer *MyApi) DeleteBydId(tableName string, id int) (interface{}, error) {
+	var err error
+	var result sql.Result
+	var affected int64
+
+	pk_name, err := dbExplorer.GetPrimaryKeyColumnName(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err = dbExplorer.DB.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", tableName, pk_name), id)
+	if err != nil {
+		return nil, err
+	}
+
+	affected, err = result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	return &DeleteResult{
+		Count: affected,
+	}, nil
+}
+
+func (dbExplorer *MyApi) GetPrimaryKeyColumnName(tableName string) (string, error) {
+	var pk_name string
+	err := dbExplorer.DB.QueryRow(fmt.Sprintf("SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_NAME = '%s'  AND CONSTRAINT_NAME = 'PRIMARY'", tableName)).Scan(&pk_name)
+	if err != nil {
+		return "", err
+	}
+	return pk_name, nil
 }
