@@ -1,1 +1,5 @@
+### Get all tables
 GET http://localhost:8082
+
+###Get table by name
+GET http://localhost:8082/items
