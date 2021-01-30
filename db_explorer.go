@@ -34,6 +34,10 @@ type Record struct {
 	Item interface{} `json:"record"`
 }
 
+type UpdateResult struct {
+	Count int64 `json:"updated"`
+}
+
 type DeleteResult struct {
 	Count int64 `json:"deleted"`
 }
@@ -470,7 +474,134 @@ func (dbExplorer *MyApi) Insert(tableName string, params map[string]interface{})
 }
 
 func (dbExplorer *MyApi) Update(w http.ResponseWriter, r *http.Request) {
+	var err error
+	params := make(map[string]interface{})
+	tableName := path.Base(r.URL.Path)
 
+	//попробуем достать id
+	var idIntVal int
+	id := tableName
+
+	idIntVal, err = strconv.Atoi(id)
+	if err == nil {
+		tableName = strings.Split(r.URL.Path, "/")[1]
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&params)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	res, err := dbExplorer.UpdateById(tableName, idIntVal, params)
+	if err != nil {
+		if res == http.StatusBadRequest {
+			makeOutput(w, ApiResponse{
+				Error: err.Error(),
+			}, http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	makeOutput(w, ApiResponse{
+		Response: &res,
+	}, http.StatusOK)
+}
+
+func (dbExplorer *MyApi) UpdateById(tableName string, id int, params map[string]interface{}) (interface{}, error) {
+	var err error
+	var result sql.Result
+	var affected int64
+
+	pk_name, err := dbExplorer.GetPrimaryKeyColumnName(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	var fieldNamesWithPlaceholders []string
+	var values []interface{}
+
+	columns := []*ColInfo{}
+	rows, err := dbExplorer.DB.Query(fmt.Sprintf("SHOW COLUMNS FROM %s", tableName))
+
+	// надо закрывать соединение, иначе будет течь
+	defer rows.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		column := &ColInfo{}
+		err = rows.Scan(&column.Field, &column.Type, &column.Null, &column.Key, &column.Default, &column.Extra)
+		if err != nil {
+			return nil, err
+		}
+		columns = append(columns, column)
+	}
+
+	for _, column := range columns {
+		if column.Field != pk_name {
+			if _, ok := params[column.Field]; ok {
+				fieldNamesWithPlaceholders = append(fieldNamesWithPlaceholders, fmt.Sprintf("%s = ?", column.Field))
+				value := params[column.Field]
+				if value == nil && column.Null == "NO" {
+					return http.StatusBadRequest, fmt.Errorf("field %s have invalid type", column.Field)
+				}
+				if strings.Contains(column.Type, "int") {
+					_, err := strconv.Atoi(fmt.Sprintf("%v", value))
+					if err != nil {
+						return http.StatusBadRequest, fmt.Errorf("field %s have invalid type", column.Field)
+					}
+				}
+				if strings.Contains(column.Type, "varchar") || strings.Contains(column.Type, "text") {
+					_, err := strconv.Atoi(fmt.Sprintf("%v", value))
+					if err == nil {
+						return http.StatusBadRequest, fmt.Errorf("field %s have invalid type", column.Field)
+					}
+				}
+				values = append(values, value)
+			}
+			//else if column.Null == "NO" && !column.Default.Valid {
+			//	fieldNamesWithPlaceholders = append(fieldNamesWithPlaceholders, column.Field)
+			//	placeholders = append(placeholders, "?")
+			//	values = append(values, "")
+			//}
+		} else {
+			if _, ok := params[column.Field]; ok {
+				return http.StatusBadRequest, fmt.Errorf("field %s have invalid type", column.Field)
+			}
+		}
+	}
+
+	//for fieldName, value := range params {
+	//	_, exists := Find(colNames, fieldName)
+	//	if fieldName != pk_name && exists {
+	//		fieldNamesWithPlaceholders = append(fieldNamesWithPlaceholders, fieldName)
+	//		placeholders = append(placeholders, "?")
+	//		values = append(values, value)
+	//	}
+	//}
+
+	stmt := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?", tableName, strings.Join(fieldNamesWithPlaceholders, ", "), pk_name)
+
+	values = append(values, id)
+
+	result, err = dbExplorer.DB.Exec(stmt, values...)
+	if err != nil {
+		return nil, err
+	}
+
+	affected, err = result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	return &UpdateResult{
+		Count: affected,
+	}, nil
 }
 
 func (dbExplorer *MyApi) Delete(w http.ResponseWriter, r *http.Request) {
@@ -486,7 +617,7 @@ func (dbExplorer *MyApi) Delete(w http.ResponseWriter, r *http.Request) {
 		tableName = strings.Split(r.URL.Path, "/")[1]
 	}
 
-	res, err := dbExplorer.DeleteBydId(tableName, idIntVal)
+	res, err := dbExplorer.DeleteById(tableName, idIntVal)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -497,7 +628,7 @@ func (dbExplorer *MyApi) Delete(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 }
 
-func (dbExplorer *MyApi) DeleteBydId(tableName string, id int) (interface{}, error) {
+func (dbExplorer *MyApi) DeleteById(tableName string, id int) (interface{}, error) {
 	var err error
 	var result sql.Result
 	var affected int64
