@@ -452,49 +452,49 @@ func TestApis(t *testing.T) {
 				},
 			},
 		},
-		//Case{
-		//	Path: "/users/2",
-		//	Result: CR{
-		//		"response": CR{
-		//			"record": CR{
-		//				"user_id":  2,
-		//				"login":    "qwerty'",
-		//				"password": "love\"",
-		//				"email":    "",
-		//				"info":     "",
-		//				"updated":  nil,
-		//			},
-		//		},
-		//	},
-		//},
-		//// тут тоже возможна sql-инъекция
-		//// если пришло не число на вход - берём дефолтное значене для лимита-оффсета
-		//Case{
-		//	Path:  "/users",
-		//	Query: "limit=1'&offset=1\"",
-		//	Result: CR{
-		//		"response": CR{
-		//			"records": []CR{
-		//				CR{
-		//					"user_id":  1,
-		//					"login":    "rvasily",
-		//					"password": "love",
-		//					"email":    "rvasily@example.com",
-		//					"info":     "try update",
-		//					"updated":  "now",
-		//				},
-		//				CR{
-		//					"user_id":  2,
-		//					"login":    "qwerty'",
-		//					"password": "love\"",
-		//					"email":    "",
-		//					"info":     "",
-		//					"updated":  nil,
-		//				},
-		//			},
-		//		},
-		//	},
-		//},
+		Case{
+			Path: "/users/2",
+			Result: CR{
+				"response": CR{
+					"record": CR{
+						"user_id":  2,
+						"login":    "qwerty'",
+						"password": "love\"",
+						"email":    "",
+						"info":     "",
+						"updated":  nil,
+					},
+				},
+			},
+		},
+		// тут тоже возможна sql-инъекция
+		// если пришло не число на вход - берём дефолтное значене для лимита-оффсета
+		Case{
+			Path:  "/users",
+			Query: "limit=1'&offset=1\"",
+			Result: CR{
+				"response": CR{
+					"records": []CR{
+						CR{
+							"user_id":  1,
+							"login":    "rvasily",
+							"password": "love",
+							"email":    "rvasily@example.com",
+							"info":     "try update",
+							"updated":  "now",
+						},
+						CR{
+							"user_id":  2,
+							"login":    "qwerty'",
+							"password": "love\"",
+							"email":    "",
+							"info":     "",
+							"updated":  nil,
+						},
+					},
+				},
+			},
+		},
 	}
 
 	runCases(t, ts, db, cases)

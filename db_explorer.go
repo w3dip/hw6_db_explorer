@@ -150,19 +150,24 @@ func (dbExplorer *MyApi) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		var limitIntVal, offsetIntVal int
+		var limitIntVal = 5
+		var offsetIntVal = 0
 
 		limit := r.URL.Query().Get("limit")
-		if limit == "" {
-			limitIntVal = 5
-		} else {
+		if limit != "" {
+			defaultValueLimit := limitIntVal
 			limitIntVal, err = strconv.Atoi(limit)
+			if err != nil {
+				limitIntVal = defaultValueLimit
+			}
 		}
 		offset := r.URL.Query().Get("offset")
-		if offset == "" {
-			offsetIntVal = 0
-		} else {
+		if offset != "" {
+			defaultValueOffset := offsetIntVal
 			offsetIntVal, err = strconv.Atoi(offset)
+			if err != nil {
+				offsetIntVal = defaultValueOffset
+			}
 		}
 
 		res, err = dbExplorer.ListTableByName(tableName, limitIntVal, offsetIntVal)
